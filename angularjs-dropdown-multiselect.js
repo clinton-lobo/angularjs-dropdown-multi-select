@@ -25,8 +25,8 @@ function ($filter, $document, $compile, $parse) {
             template += '<li ng-show="settings.enableSearch"><div class="dropdown-header"><input type="text" class="form-control" style="width: 100%;" ng-model="searchFilter" placeholder="{{texts.searchPlaceholder}}" ng-keyup="deselectAll()" /></li>';
             template += '<li ng-show="settings.enableSearch" class="divider"></li>';
             
-            template += '<li ng-hide="(options.length > 0 && options.length === selectedModel.length)"><a data-ng-click="selectAll()"><span><input type="checkbox"></span>&nbsp;{{texts.checkAll}}</a>';
-            template += '<li ng-show="(options.length > 0 && options.length === selectedModel.length)"><a data-ng-click="deselectAll();"><span><input type="checkbox" checked></span>&nbsp;{{texts.checkAll}}</a></li>';
+            template += '<li ng-hide="(options.length > 0 && (options.length === selectedModel.length) || (filterData.length === selectedModel.length))"><a data-ng-click="selectAll()"><span><input type="checkbox"></span>&nbsp;{{texts.checkAll}}</a>';
+            template += '<li ng-show="(options.length > 0 && (options.length === selectedModel.length) || (filterData.length === selectedModel.length))"><a data-ng-click="deselectAll();"><span><input type="checkbox" checked></span>&nbsp;{{texts.checkAll}}</a></li>';
             template += '<li ng-hide="(!settings.showCheckAll || settings.selectionLimit > 0) && !settings.showUncheckAll" class="divider"></li>';           
 
             if (groups) {
@@ -107,17 +107,32 @@ function ($filter, $document, $compile, $parse) {
             };
 
             $scope.searchFilter = $scope.searchFilter || '';
+            var sortByFields = $attrs.groupBy ? [$attrs.groupBy, $scope.settings.displayProp]:[$scope.settings.displayProp];
 
+            function sortNodes(nodeA, nodeB) {
+          	  var nodeAGroupBy = (nodeA[$attrs.groupBy]+"").toUpperCase(); 
+          	  var nodeBGroupBy =(nodeB[$attrs.groupBy]+"").toUpperCase(); 
+          	  if (nodeAGroupBy < nodeBGroupBy) {
+          	    return -1;
+          	  }
+          	  if (nodeAGroupBy > nodeBGroupBy) {
+          	    return 1;
+          	  }
+          	  return 0;
+          	}
             
             var numCellsToCreate = 50;
             var numCellsToCreateThreshold = 500;
             $scope.initInfiniteScroll = function() {
                 $scope.scrollTop = 0;
                 $scope.visibleDataProvider = angular.copy($scope.options);
+                if($attrs.groupBy){
+                	 $scope.visibleDataProvider.sort(sortNodes);
+                }               
                 var initCellsToCreate = $scope.visibleDataProvider.slice(0, 
                 		($scope.visibleDataProvider.length > numCellsToCreateThreshold) ? numCellsToCreateThreshold : $scope.visibleDataProvider.length);
                 if($attrs.groupBy){
-                    $scope.orderedItems = $filter('orderBy')(initCellsToCreate, $scope.settings.groupBy); 
+                    $scope.orderedItems = $filter('orderBy')(initCellsToCreate, sortByFields); 
                 }else {
                 	$scope.unOrderedItems = initCellsToCreate;
                 }
@@ -125,16 +140,20 @@ function ($filter, $document, $compile, $parse) {
                 if($scope.open){
                     $('.dropdown-menu', $element[0]).scrollTop(0);   
                 }
-                $('.dropdown-menu', $element[0])[0].addEventListener('scroll', $scope.onScroll);
+                var onScrollThrottle = _.throttle($scope.onScroll, 49);
+                $('.dropdown-menu', $element[0])[0].addEventListener('scroll', onScrollThrottle);
                 $scope.updateDisplayList();
             };
             
             function initInfiniteScrollForFilteredData(filteredData) {
                 $scope.filterDataProvider = angular.copy(filteredData);
+                if($attrs.groupBy){
+               	 $scope.filterDataProvider.sort(sortNodes);
+                }   
                 var initCellsToCreate = $scope.filterDataProvider.slice(0, 
                 		($scope.filterDataProvider.length > numCellsToCreateThreshold) ? numCellsToCreateThreshold : $scope.filterDataProvider.length);
                 if($attrs.groupBy){
-                    $scope.filteredData = $filter('orderBy')(initCellsToCreate, $scope.settings.groupBy); 
+                    $scope.filteredData = $filter('orderBy')(initCellsToCreate, sortByFields); 
                 }else {
                 	$scope.filteredData = initCellsToCreate;
                 }
@@ -165,7 +184,7 @@ function ($filter, $document, $compile, $parse) {
             
             function onFilterChange(newValue, oldValue){
                 if(newValue !== oldValue){
-                    // console.log("searchFilter : newValue : "+ newValue);
+                    console.log("searchFilter : newValue : "+ newValue);
                     if(newValue === ''){
                       return ;                      
                     } 
@@ -203,7 +222,7 @@ function ($filter, $document, $compile, $parse) {
                       });
                     }
                     $scope.filtermarker = $scope.filteredData.length;
-                    // console.log("Number of filter records loaded : " + $scope.filtermarker);
+                    console.log("Number of filter records loaded : " + $scope.filtermarker);
                 }
             };
             $scope.updateDisplayList = function() {
@@ -233,7 +252,7 @@ function ($filter, $document, $compile, $parse) {
                         $scope.marker = $scope.unOrderedItems.length;
                     }
 
-                        // console.log("Number of records loaded : " + $scope.marker);
+                        console.log("Number of records loaded : " + $scope.marker);
                 }
             };
 
@@ -256,7 +275,7 @@ function ($filter, $document, $compile, $parse) {
                    if (newValue.length > numCellsToCreateThreshold) {
                        $scope.initInfiniteScroll();
                    }else if (angular.isDefined($scope.settings.groupBy)) {
-                       $scope.orderedItems = $filter('orderBy')(newValue, $scope.settings.groupBy); 
+                       $scope.orderedItems = $filter('orderBy')(newValue, sortByFields); 
                    }else{
                       $scope.unOrderedItems = newValue;
                    }  
