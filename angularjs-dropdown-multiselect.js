@@ -108,18 +108,6 @@ function ($filter, $document, $compile, $parse) {
 
             $scope.searchFilter = $scope.searchFilter || '';
             var sortByFields = $attrs.groupBy ? [$attrs.groupBy, $scope.settings.displayProp]:[$scope.settings.displayProp];
-
-            function sortNodes(nodeA, nodeB) {
-          	  var nodeAGroupBy = (nodeA[$attrs.groupBy]+"").toUpperCase(); 
-          	  var nodeBGroupBy =(nodeB[$attrs.groupBy]+"").toUpperCase(); 
-          	  if (nodeAGroupBy < nodeBGroupBy) {
-          	    return -1;
-          	  }
-          	  if (nodeAGroupBy > nodeBGroupBy) {
-          	    return 1;
-          	  }
-          	  return 0;
-          	}
             
             var numCellsToCreate = 50;
             var numCellsToCreateThreshold = 500;
@@ -127,7 +115,7 @@ function ($filter, $document, $compile, $parse) {
                 $scope.scrollTop = 0;
                 $scope.visibleDataProvider = angular.copy($scope.options);
                 if($attrs.groupBy){
-                	 $scope.visibleDataProvider.sort(sortNodes);
+                	  _.sortBy( $scope.visibleDataProvider, $attrs.groupBy);
                 }               
                 var initCellsToCreate = $scope.visibleDataProvider.slice(0, 
                 		($scope.visibleDataProvider.length > numCellsToCreateThreshold) ? numCellsToCreateThreshold : $scope.visibleDataProvider.length);
