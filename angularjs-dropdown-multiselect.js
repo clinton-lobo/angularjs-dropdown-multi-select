@@ -136,7 +136,7 @@ function ($filter, $document, $compile, $parse) {
             function initInfiniteScrollForFilteredData(filteredData) {
                 $scope.filterDataProvider = angular.copy(filteredData);
                 if($attrs.groupBy){
-               	 $scope.filterDataProvider.sort(sortNodes);
+               	  _.sortBy($scope.filterDataProvider, $attrs.groupBy);
                 }   
                 var initCellsToCreate = $scope.filterDataProvider.slice(0, 
                 		($scope.filterDataProvider.length > numCellsToCreateThreshold) ? numCellsToCreateThreshold : $scope.filterDataProvider.length);
