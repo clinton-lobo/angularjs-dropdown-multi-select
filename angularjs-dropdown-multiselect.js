@@ -1,8 +1,8 @@
 var directiveModule = angular.module('angularjs-dropdown-multiselect', []);
 
-directiveModule.directive('ngDropdownMultiselect', ['$filter', '$document', '$compile', '$parse',
+directiveModule.directive('ngDropdownMultiselect', ['$filter', '$document', '$compile', '$parse', '$timeout',
 
-function ($filter, $document, $compile, $parse) {
+function ($filter, $document, $compile, $parse, $timeout) {
     return {
         restrict: 'AE',
         scope: {
@@ -20,13 +20,13 @@ function ($filter, $document, $compile, $parse) {
 
             var template = '<div class="multiselect-parent btn-group dropdown-multiselect">';
             template += '<button type="button" class="dropdown-toggle " ng-class="settings.buttonClasses" ng-click="toggleDropdown()">{{getButtonText()}}&nbsp;<span class="caret"></span></button>';
-            template += '<ul class="dropdown-menu dropdown-menu-form" ng-style="{display: open ? \'block\' : \'none\', height : settings.scrollable ? settings.scrollableHeight : \'200px\' }" style="overflow: scroll" >';
+            template += '<ul class="dropdown-menu dropdown-menu-form" ng-style="{display: open ? \'block\' : \'none\', height : settings.scrollable ? settings.scrollableHeight : \'auto\' }" style="overflow: scroll" >';
             
             template += '<li ng-show="settings.enableSearch"><div class="dropdown-header"><input type="text" class="form-control" style="width: 100%;" ng-model="searchFilter" placeholder="{{texts.searchPlaceholder}}" ng-keyup="deselectAll()" /></li>';
             template += '<li ng-show="settings.enableSearch" class="divider"></li>';
             
-            template += '<li ng-hide="(options.length > 0 && (options.length === selectedModel.length) || (filterData.length === selectedModel.length))"><a data-ng-click="selectAll()"><span><input type="checkbox"></span>&nbsp;{{texts.checkAll}}</a>';
-            template += '<li ng-show="(options.length > 0 && (options.length === selectedModel.length) || (filterData.length === selectedModel.length))"><a data-ng-click="deselectAll();"><span><input type="checkbox" checked></span>&nbsp;{{texts.checkAll}}</a></li>';
+            template += '<li ng-hide="canShowSelectAll()"><a data-ng-click="selectAll()" ng-hide="(options.length > 0 && (options.length === selectedModel.length) || (filterData.length === selectedModel.length))"><span><input type="checkbox"></span>&nbsp;{{texts.checkAll}}</a>';
+            template += '<a data-ng-click="deselectAll();" ng-show="(options.length > 0 && (options.length === selectedModel.length) || (filterData.length === selectedModel.length))"><span><input type="checkbox" checked></span>&nbsp;{{texts.checkAll}}</a></li>';
             template += '<li ng-hide="(!settings.showCheckAll || settings.selectionLimit > 0) && !settings.showUncheckAll" class="divider"></li>';           
 
             if (groups) {
@@ -77,7 +77,7 @@ function ($filter, $document, $compile, $parse) {
 
             $scope.settings = {
                 dynamicTitle: true,
-                scrollable: false,
+                scrollable: true,
                 scrollableHeight: '200px',
                 closeOnBlur: true,
                 displayProp: 'label',
@@ -106,6 +106,10 @@ function ($filter, $document, $compile, $parse) {
                 dynamicButtonTextSuffix: '    selected'
             };
 
+            $scope.canShowSelectAll = function(){
+            	return (!$scope.settings.showCheckAll || $scope.settings.selectionLimit > 0) && !$scope.settings.showUncheckAll;
+            };
+            
             $scope.searchFilter = $scope.searchFilter || '';
             var sortByFields = $attrs.groupBy ? [$attrs.groupBy, $scope.settings.displayProp]:[$scope.settings.displayProp];
             
@@ -115,7 +119,7 @@ function ($filter, $document, $compile, $parse) {
                 $scope.scrollTop = 0;
                 $scope.visibleDataProvider = angular.copy($scope.options);
                 if($attrs.groupBy){
-                	  _.sortBy( $scope.visibleDataProvider, $attrs.groupBy);
+                	 _.sortBy( $scope.visibleDataProvider, $attrs.groupBy);
                 }               
                 var initCellsToCreate = $scope.visibleDataProvider.slice(0, 
                 		($scope.visibleDataProvider.length > numCellsToCreateThreshold) ? numCellsToCreateThreshold : $scope.visibleDataProvider.length);
@@ -136,7 +140,7 @@ function ($filter, $document, $compile, $parse) {
             function initInfiniteScrollForFilteredData(filteredData) {
                 $scope.filterDataProvider = angular.copy(filteredData);
                 if($attrs.groupBy){
-               	  _.sortBy($scope.filterDataProvider, $attrs.groupBy);
+                	_.sortBy($scope.filterDataProvider, $attrs.groupBy);
                 }   
                 var initCellsToCreate = $scope.filterDataProvider.slice(0, 
                 		($scope.filterDataProvider.length > numCellsToCreateThreshold) ? numCellsToCreateThreshold : $scope.filterDataProvider.length);
@@ -176,8 +180,15 @@ function ($filter, $document, $compile, $parse) {
                     if(newValue === ''){
                       return ;                      
                     } 
-                    var _filtered = $filter('filter')($scope.options, newValue); 
-                    initInfiniteScrollForFilteredData(_filtered);
+                var _filtered;
+            	if(angular.isObject($scope.options[0])){
+            		var searchExpression = {};
+            		searchExpression[$scope.settings.displayProp] = newValue;
+            		_filtered = $filter('filter')($scope.options,  searchExpression);            		
+            	}else{
+            		_filtered = $filter('filter')($scope.options, newValue);
+            	}
+            	initInfiniteScrollForFilteredData(_filtered);
                 }                
             }
             
@@ -253,12 +264,14 @@ function ($filter, $document, $compile, $parse) {
                     }else{
                        $scope.updateDisplayList();
                     }  
-                    $scope.$apply();
+                    $timeout(function(){
+                    	$scope.$apply();                    	
+                    }, 1);                                        
                 }
             };
 
             $scope.$watch('options', function (newValue) {
-                 if (angular.isDefined(newValue)) {
+                 if (angular.isDefined(newValue) && newValue.length) {
                    $scope.searchFilter = '';
                    if (newValue.length > numCellsToCreateThreshold) {
                        $scope.initInfiniteScroll();
@@ -384,8 +397,13 @@ function ($filter, $document, $compile, $parse) {
             $scope.selectAll = function () { 
             	$scope.deselectAll(false);
                
-            	
-            	$scope.filterData = $filter('filter')($scope.options, $scope.searchFilter);           	
+            	if(angular.isObject($scope.options[0])){
+            		var searchExpression = {};
+            		searchExpression[$scope.settings.displayProp] = $scope.searchFilter;
+            		$scope.filterData = $filter('filter')($scope.options,  searchExpression);           		
+            	}else{
+            		$scope.filterData = $filter('filter')($scope.options, $scope.searchFilter);
+            	} 
             	                
                 angular.forEach($scope.filterData, function (value) {                	
                     $scope.setSelectedItem(value[$scope.settings.idProp], true);
